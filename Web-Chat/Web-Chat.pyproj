@@ -12,6 +12,11 @@
     <OutputPath>.</OutputPath>
     <Name>Web-Chat</Name>
     <RootNamespace>Web-Chat</RootNamespace>
+    <LaunchProvider>Standard Python launcher</LaunchProvider>
+    <InterpreterPath>
+    </InterpreterPath>
+    <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
+    <CommandLineArguments>localhost 50116</CommandLineArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -22,6 +27,9 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="chat_client.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Web_Chat.py" />
   </ItemGroup>
   <PropertyGroup>
