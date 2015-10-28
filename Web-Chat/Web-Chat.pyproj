@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>55ca861b-584d-47d8-b801-0e4dc6f8dc1a</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>Web_Chat.py</StartupFile>
+    <StartupFile>chat_server.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -30,7 +30,7 @@
     <Compile Include="chat_client.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="Web_Chat.py" />
+    <Compile Include="chat_server.py" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
