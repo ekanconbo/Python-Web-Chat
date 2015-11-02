@@ -13,7 +13,7 @@ import thread
 import sys, time
 import traceback
 
-def broadcast_data (sock, message):
+def broadcast (sock, message):
     """Send broadcast message to all clients other than the
        server socket and the client socket from which the data is received."""
 
@@ -25,7 +25,7 @@ def broadcast_data (sock, message):
 
 def accept_connection():
 
-    global CONNECTIONS, RECV_BUFFER
+    global CONNECTIONS, RECV_BUFFER, CONNECTION_MAP
 
     try:
 
@@ -35,13 +35,13 @@ def accept_connection():
 
             try:
 
-                #print "waiting for accept"
                 sockfd, addr = server_socket.accept()
                 # Set socket to non-blocking mode
                 sockfd.setblocking(0)
                 CONNECTIONS.append(sockfd)
-                print ("Client (%s, %s) connected" % addr)
-                broadcast_data(sockfd, "Client (%s, %s) connected" % addr)
+                CONNECTION_MAP[sockfd] = ""
+                print "Client (%s, %s) connected" % addr
+                broadcast(sockfd, "Client (%s, %s) connected" % addr)
 
             except:
                 pass
@@ -55,7 +55,7 @@ def accept_connection():
 
 def process_connection():
 
-    global CONNECTIONS, RECV_BUFFER
+    global CONNECTIONS, RECV_BUFFER, USERNAMES, CONNECTION_MAP
 
     try:
 
@@ -73,17 +73,38 @@ def process_connection():
                     if data:
 
                         # The client sends some valid data, process it
+                        print data
+                        if data[0] == "/":
+                            data_list = data.split(" ", 2)
+                            print data_list[2]
+                            if data_list[0] == "/set":
+                                #not necessary but decided to make it less ambigious
+                                if data_list[1] == "username" and data_list[2] != null:
+                                    for s in CONNECTION_MAP:
+                                        if CONNECTION_MAP[s] == data_list[2]:
+                                                broadcast(sock, "Client (%s, %s) quits" % sock.getpeername())
+                                                sock.close()
+                                                del CONNECTION_MAP[sock]
 
-                        if data == "/logout":
+                                elif data_list[2] != null:
+                                    CONNECTION_MAP[sock] = data_list[2]
+                                    broadcast(sock, "Client (%s, %s) assumes new handle %s" % sock.getpeername(),data_list[2])
 
-                            broadcast_data(sock, "Client (%s, %s) quits" % sock.getpeername())
-                            print "Client (%s, %s) quits" % sock.getpeername()
-                            sock.close()
-                            CONNECTIONS.remove(sock)
+                                else:
+                                    sock.send("invalid statement")
+
+
+                            elif data[0] == "/logout":
+                                broadcast(sock, "Client (%s, %s) quits" % sock.getpeername())
+                                print "Client (%s, %s) quits" % sock.getpeername()
+                                sock.close()
+                                CONNECTIONS.remove(sock)
+                                del CONNECTION_MAP[sock]
 
                         else:
+                        
+                            broadcast(sock, data)
 
-                            broadcast_data(sock, data)
 
                 except:
 
@@ -96,7 +117,7 @@ def process_connection():
                         # In Windows, sometimes when a TCP client program closes abruptly,
                         # or when you press Ctrl-C a "Connection reset by peer" exception will be thrown
 
-                        broadcast_data(sock, "Client (%s, %s) quits" % sock.getpeername())
+                        broadcast(sock, "Client (%s, %s) quits" % sock.getpeername())
                         print "Client (%s, %s) quits" % sock.getpeername()
                         sock.close()
                         CONNECTIONS.remove(sock)
@@ -117,7 +138,9 @@ def process_connection():
                
 if __name__ == "__main__":
 
-    CONNECTIONS=[]
+    CONNECTIONS = []
+    USERNAMES = []
+    CONNECTION_MAP = dict(zip(CONNECTIONS, USERNAMES))
     RECV_BUFFER=4096
 
     
@@ -128,7 +151,7 @@ if __name__ == "__main__":
 
     threadlock = thread.allocate_lock()
 
-    print ("Chat Server started")
+    print "Chat Server started"
     
     thread.start_new_thread(accept_connection, ())
     thread.start_new_thread(process_connection, ())
