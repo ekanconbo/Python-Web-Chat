@@ -1,79 +1,140 @@
-﻿# chat_server.py
- 
-import sys, socket, select
+﻿#
+# tcpchatserver_nonblocking.py
+# TCP/IP Chat server
+# The server accepts connection from multiple clients and
+# broadcasts data sent by a client to all other clients
+# which are online (connection active with server)
+#
 
-HOST = '' 
-SOCKET_LIST = []
-RECV_BUFFER = 4096 
-PORT = 50116
+import socket
+import select
+import string
+import thread
+import sys, time
+import traceback
 
-def chat_server():
+def broadcast_data (sock, message):
+    """Send broadcast message to all clients other than the
+       server socket and the client socket from which the data is received."""
 
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind((HOST, PORT))
-    server_socket.listen(10)
- 
-    # add server socket object to the list of readable connections
-    SOCKET_LIST.append(server_socket)
-    print ("Chat server started on port " + str(PORT))
- 
-    while 1:
-
-        # get the list sockets which are ready to be read through select
-        # 4th arg, time_out  = 0 : poll and never block
-        ready_to_read,ready_to_write,in_error = select.select(SOCKET_LIST,[],[],0)
-      
-        for sock in ready_to_read:
-            # a new connection request recieved
-            if sock == server_socket: 
-                sockfd, addr = server_socket.accept()
-                SOCKET_LIST.append(sockfd)
-                print ("Client (%s, %s) connected" % addr)
-                 
-                broadcast(server_socket, sockfd, "[%s:%s] entered our chatting room\n" % addr)
-             
-            # a message from a client, not a new connection
-            else:
-                # process data recieved from client, 
-                try:
-                    # receiving data from the socket.
-                    data = sock.recv(RECV_BUFFER)
-                    if data:
-                        # there is something in the socket
-                        broadcast(server_socket, sock, "\r" + '[' + str(sock.getpeername()) + '] ' + data)  
-                    else:
-                        # remove the socket that's broken    
-                        if sock in SOCKET_LIST:
-                            SOCKET_LIST.remove(sock)
-
-                        # at this stage, no data means probably the connection has been broken
-                        broadcast(server_socket, sock, "Client (%s, %s) is offline\n" % addr) 
-
-                # exception 
-                except:
-                    broadcast(server_socket, sock, "Client (%s, %s) is offline\n" % addr)
-                    continue
-
-    server_socket.close()
+    global CONNECTIONS
     
-# broadcast chat messages to all connected clients
-def broadcast (server_socket, sock, message):
-    for socket in SOCKET_LIST:
-        # send the message only to peer
-        if socket != server_socket and socket != sock :
-            try :
-                socket.send(message)
-            except :
-                # broken socket connection
-                socket.close()
-                # broken socket, remove it
-                if socket in SOCKET_LIST:
-                    SOCKET_LIST.remove(socket)
- 
+    for socket in CONNECTIONS:
+        if socket != sock:            
+            socket.send(message)
+
+def accept_connection():
+
+    global CONNECTIONS, RECV_BUFFER
+
+    try:
+
+        while 1:
+
+            threadlock.acquire()
+
+            try:
+
+                #print "waiting for accept"
+                sockfd, addr = server_socket.accept()
+                # Set socket to non-blocking mode
+                sockfd.setblocking(0)
+                CONNECTIONS.append(sockfd)
+                print ("Client (%s, %s) connected" % addr)
+                broadcast_data(sockfd, "Client (%s, %s) connected" % addr)
+
+            except:
+                pass
+
+            threadlock.release()
+
+    except:
+        #Handle the case when client program is terminated with Ctrl-C
+        #catch the exception and exit
+        pass
+
+def process_connection():
+
+    global CONNECTIONS, RECV_BUFFER
+
+    try:
+
+        while 1:
+
+            #print "waiting for packet"
+            for sock in CONNECTIONS:
+
+                threadlock.acquire()
+
+                try:
+
+                    data = sock.recv(RECV_BUFFER)
+
+                    if data:
+
+                        # The client sends some valid data, process it
+
+                        if data == "/logout":
+
+                            broadcast_data(sock, "Client (%s, %s) quits" % sock.getpeername())
+                            print "Client (%s, %s) quits" % sock.getpeername()
+                            sock.close()
+                            CONNECTIONS.remove(sock)
+
+                        else:
+
+                            broadcast_data(sock, data)
+
+                except:
+
+                    #Exception thrown, get the error code and do cleanup actions
+                    socket_errorcode =  sys.exc_value[0]
+
+                    if socket_errorcode == 10054:
+
+                        # Connection reset by peer exception
+                        # In Windows, sometimes when a TCP client program closes abruptly,
+                        # or when you press Ctrl-C a "Connection reset by peer" exception will be thrown
+
+                        broadcast_data(sock, "Client (%s, %s) quits" % sock.getpeername())
+                        print "Client (%s, %s) quits" % sock.getpeername()
+                        sock.close()
+                        CONNECTIONS.remove(sock)
+
+                    else:
+                        # The socket is not ready for reading, which results in an exception,
+                        # ignore this and pass on with the next client socket (without blocking)
+                        # The exception you will see here is
+                        # "The socket operation could not complete without blocking"
+                        pass
+
+                threadlock.release()
+
+    except:
+        #Handle the case when server program is terminated with Ctrl-C
+        #catch the exception and exit
+        pass
+               
 if __name__ == "__main__":
 
-    sys.exit(chat_server())
+    CONNECTIONS=[]
+    RECV_BUFFER=4096
 
+    
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.bind(("127.0.0.1", 50116))
+    server_socket.listen(10)
+    server_socket.setblocking(0)
 
-         
+    threadlock = thread.allocate_lock()
+
+    print ("Chat Server started")
+    
+    thread.start_new_thread(accept_connection, ())
+    thread.start_new_thread(process_connection, ())
+
+    try:
+        while 1:
+            pass
+    except:
+        server_socket.close()

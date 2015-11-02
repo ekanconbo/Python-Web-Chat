@@ -27,10 +27,10 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="chat_server.py" />
     <Compile Include="chat_client.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="chat_server.py" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
