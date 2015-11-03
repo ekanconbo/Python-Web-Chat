@@ -12,6 +12,7 @@ import string
 import thread
 import sys, time
 import traceback
+import Connection
 
 def broadcast (sock, message):
     """Send broadcast message to all clients other than the
@@ -35,10 +36,12 @@ def accept_connection():
 
             try:
 
+
                 sockfd, addr = server_socket.accept()
                 # Set socket to non-blocking mode
                 sockfd.setblocking(0)
-                CONNECTIONS.append(sockfd)
+                print "hi"
+                CONNECTIONS.append(Connection(sockfd))
                 CONNECTION_MAP[sockfd] = ""
                 print "Client (%s, %s) connected" % addr
                 broadcast(sockfd, "Client (%s, %s) connected" % addr)
@@ -62,48 +65,66 @@ def process_connection():
         while 1:
 
             #print "waiting for packet"
-            for sock in CONNECTIONS:
+            for c in CONNECTIONS:
 
                 threadlock.acquire()
 
                 try:
 
-                    data = sock.recv(RECV_BUFFER)
+                    data = c.sock.recv(RECV_BUFFER)
 
                     if data:
 
                         # The client sends some valid data, process it
-                        print data
+                        #print data
                         if data[0] == "/":
                             data_list = data.split(" ", 2)
-                            print data_list[2]
+                            #print data_list[2]
                             if data_list[0] == "/set":
                                 #not necessary but decided to make it less ambigious
-                                if data_list[1] == "username" and data_list[2] != null:
+                                #print "data_list[1] is " + data_list[1]
+                                #print "data_list[2] is " + data_list[2]
+                                if data_list[1] == "username" and data_list[2] != "":
+                                    print "you made it"
                                     for s in CONNECTION_MAP:
-                                        if CONNECTION_MAP[s] == data_list[2]:
-                                                broadcast(sock, "Client (%s, %s) quits" % sock.getpeername())
-                                                sock.close()
-                                                del CONNECTION_MAP[sock]
+                                        if s != c.sock:
+                                          print "connection" + CONNECTION_MAP[s]
+                                          if CONNECTION_MAP[s] == data_list[2]:
+                                            broadcast(c.sock, "Client (%s, %s) quits" % c.sock.getpeername())
+                                            sock.close()
+                                            del CONNECTION_MAP[sock]
 
-                                elif data_list[2] != null:
-                                    CONNECTION_MAP[sock] = data_list[2]
-                                    broadcast(sock, "Client (%s, %s) assumes new handle %s" % sock.getpeername(),data_list[2])
+                                    print "Connection_MAP[sock] = " + CONNECTION_MAP[c.sock]
+                                    CONNECTION_MAP[c.sock] = data_list[2];
+                                    broadcast(c.sock, "Client (%s, %s) assumes new handle " + data_list[2] % c.sock.getpeername())
 
                                 else:
-                                    sock.send("invalid statement")
+                                    broadcast(c.sock, "Client (%s, %s) quits" % c.sock.getpeername())
+                                    sock.close()
+                                    del CONNECTION_MAP[c.sock]
 
+                            elif data_list[0] == "/block":
+                                if data_list[2] != "":
+                                    for s in CONNECTION_MAP:
+                                        if s != sock:
+                                          if CONNECTION_MAP[s] == data_list[2]:
+                                              print "hi"
+
+                                else:
+                                    broadcast(c.sock, "Client (%s, %s) quits" % c.sock.getpeername())
+                                    sock.close()
+                                    del CONNECTION_MAP[sock]
 
                             elif data[0] == "/logout":
-                                broadcast(sock, "Client (%s, %s) quits" % sock.getpeername())
-                                print "Client (%s, %s) quits" % sock.getpeername()
-                                sock.close()
-                                CONNECTIONS.remove(sock)
+                                broadcast(c.sock, "Client (%s, %s) quits" % c.sock.getpeername())
+                                print "Client (%s, %s) quits" % c.sock.getpeername()
+                                c.sock.close()
+                                CONNECTIONS.remove(c)
                                 del CONNECTION_MAP[sock]
 
                         else:
                         
-                            broadcast(sock, data)
+                            broadcast(c.sock, data)
 
 
                 except:
