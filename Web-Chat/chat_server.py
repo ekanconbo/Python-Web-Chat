@@ -12,21 +12,21 @@ import string
 import thread
 import sys, time
 import traceback
-import Connection
+from Connection import Connection
 
-def broadcast (sock, message):
+def broadcast (connection, message):
     """Send broadcast message to all clients other than the
        server socket and the client socket from which the data is received."""
 
     global CONNECTIONS
     
-    for socket in CONNECTIONS:
-        if socket != sock:            
-            socket.send(message)
+    for c in CONNECTIONS:
+        if c.sock != connection.sock and c not in connection.ignore_list and connection not in c.ignore_list:
+            c.sock.send(message)
 
 def accept_connection():
 
-    global CONNECTIONS, RECV_BUFFER, CONNECTION_MAP
+    global CONNECTIONS, RECV_BUFFER
 
     try:
 
@@ -36,15 +36,13 @@ def accept_connection():
 
             try:
 
-
                 sockfd, addr = server_socket.accept()
+                con = Connection(sockfd)
+                CONNECTIONS.append(con)
                 # Set socket to non-blocking mode
-                sockfd.setblocking(0)
-                print "hi"
-                CONNECTIONS.append(Connection(sockfd))
-                CONNECTION_MAP[sockfd] = ""
+                con.sock.setblocking(0)
                 print "Client (%s, %s) connected" % addr
-                broadcast(sockfd, "Client (%s, %s) connected" % addr)
+                broadcast(con, "Client (%s, %s) connected" % addr)
 
             except:
                 pass
@@ -58,13 +56,12 @@ def accept_connection():
 
 def process_connection():
 
-    global CONNECTIONS, RECV_BUFFER, USERNAMES, CONNECTION_MAP
+    global CONNECTIONS, RECV_BUFFER
 
     try:
 
         while 1:
 
-            #print "waiting for packet"
             for c in CONNECTIONS:
 
                 threadlock.acquire()
@@ -75,56 +72,68 @@ def process_connection():
 
                     if data:
 
-                        # The client sends some valid data, process it
-                        #print data
+                        #Process data. If it is a command (starts with "/"), process it. Otherwise broadcast message
                         if data[0] == "/":
-                            data_list = data.split(" ", 2)
-                            #print data_list[2]
+
+                            data_list = data.split(" ", 1)
                             if data_list[0] == "/set":
                                 #not necessary but decided to make it less ambigious
-                                #print "data_list[1] is " + data_list[1]
-                                #print "data_list[2] is " + data_list[2]
+                                data_list = data.split(" ", 2)
                                 if data_list[1] == "username" and data_list[2] != "":
-                                    print "you made it"
-                                    for s in CONNECTION_MAP:
-                                        if s != c.sock:
-                                          print "connection" + CONNECTION_MAP[s]
-                                          if CONNECTION_MAP[s] == data_list[2]:
-                                            broadcast(c.sock, "Client (%s, %s) quits" % c.sock.getpeername())
-                                            sock.close()
-                                            del CONNECTION_MAP[sock]
+                                    for con in CONNECTIONS:
+                                        if con != c.sock:
+                                          if con.username == data_list[2]:
+                                            broadcast(c, "Client (%s, %s) quits" % c.sock.getpeername())
+                                            c.sock.close()
+                                            CONNECTIONS.remove(c)
 
-                                    print "Connection_MAP[sock] = " + CONNECTION_MAP[c.sock]
-                                    CONNECTION_MAP[c.sock] = data_list[2];
-                                    broadcast(c.sock, "Client (%s, %s) assumes new handle " + data_list[2] % c.sock.getpeername())
+                                    c.username = data_list[2];
+                                    broadcast(c, "Client (%s, %s) assumes new handle " + data_list[2] % c.sock.getpeername())
 
                                 else:
-                                    broadcast(c.sock, "Client (%s, %s) quits" % c.sock.getpeername())
-                                    sock.close()
-                                    del CONNECTION_MAP[c.sock]
-
+                                    broadcast(c, "Client (%s, %s) quits" % c.sock.getpeername())
+                                    c.sock.close()
+                                    CONNECTIONS.remove(c)
+                            
+                            #Blocks users by finding their connection object by username and adding it to the blocker's ignore_list
                             elif data_list[0] == "/block":
-                                if data_list[2] != "":
-                                    for s in CONNECTION_MAP:
-                                        if s != sock:
-                                          if CONNECTION_MAP[s] == data_list[2]:
-                                              print "hi"
+                                print "1"
+                                if data_list[1] != "":
+                                    print "2"
+                                    found = False
+                                    print "3"
+                                    for e in CONNECTIONS:
+                                        print "4"
+                                        if e.username == data_list[1]:
+                                            print "5"
+                                            c.ignore_list.append(e)
+                                            found = True
+                                            break
+                                        
+                                    if found:
+                                        c.sock.send("User " + data_list[1] + "successfully ignored.")
+                                    else:
+                                        c.sock.send("User " + data_list[1] + " not found.")
+                            
+                            #Works just like blocking users except removes their connection object from the ignore_list
+                            elif data_list[0] == "/unblock":
+                                if data_list[1] != "":
+                                    for e in CONNECTIONS:
+                                        if e.username == data_list[1]:
+                                            c.ignore_list.remove(e)
+                                            break
+                                        else:
+                                            c.sock.send("User " + data_list[1] + " not found.")
 
-                                else:
-                                    broadcast(c.sock, "Client (%s, %s) quits" % c.sock.getpeername())
-                                    sock.close()
-                                    del CONNECTION_MAP[sock]
 
                             elif data[0] == "/logout":
-                                broadcast(c.sock, "Client (%s, %s) quits" % c.sock.getpeername())
+                                broadcast(c, "Client (%s, %s) quits" % c.sock.getpeername())
                                 print "Client (%s, %s) quits" % c.sock.getpeername()
                                 c.sock.close()
                                 CONNECTIONS.remove(c)
-                                del CONNECTION_MAP[sock]
 
-                        else:
-                        
-                            broadcast(c.sock, data)
+                        else: 
+                            broadcast(c, data)
 
 
                 except:
@@ -138,7 +147,7 @@ def process_connection():
                         # In Windows, sometimes when a TCP client program closes abruptly,
                         # or when you press Ctrl-C a "Connection reset by peer" exception will be thrown
 
-                        broadcast(sock, "Client (%s, %s) quits" % sock.getpeername())
+                        broadcast(c, "Client (%s, %s) quits" % sock.getpeername())
                         print "Client (%s, %s) quits" % sock.getpeername()
                         sock.close()
                         CONNECTIONS.remove(sock)
@@ -160,8 +169,6 @@ def process_connection():
 if __name__ == "__main__":
 
     CONNECTIONS = []
-    USERNAMES = []
-    CONNECTION_MAP = dict(zip(CONNECTIONS, USERNAMES))
     RECV_BUFFER=4096
 
     
