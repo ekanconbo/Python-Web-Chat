@@ -31,9 +31,15 @@
     <Compile Include="chat_client.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ClientGUI.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="Connection.py">
       <SubType>Code</SubType>
     </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="Chatterbox.ico" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
