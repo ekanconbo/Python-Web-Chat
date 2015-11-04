@@ -6,10 +6,9 @@ from Tkinter import *
 from ClientGUI import ClientGUI
 import Queue
 
-HOST = "127.0.0.1"
-PORT = 50116
-#HOST = raw_input("Please enter the Host IP\n")
-#PORT = int(raw_input("Please enter the Port number\n"))
+
+HOST = raw_input("Please enter the Host IP\n")
+PORT = int(raw_input("Please enter the Port number\n"))
 RECV_BUFFER=4096
 ready = False
 
