@@ -6,7 +6,6 @@ from Tkinter import *
 from ClientGUI import ClientGUI
 import Queue
 
-
 HOST = raw_input("Please enter the Host IP\n")
 PORT = int(raw_input("Please enter the Port number\n"))
 RECV_BUFFER=4096
@@ -53,7 +52,6 @@ def send_data():
         try:
             if gui.text_input:
                 text_input = gui.text_input
-                #print "bingo" +text_input
                 gui.text_input = ""
                 data_list = text_input.split(" ", 2)
                 if len(data_list) >= 3:

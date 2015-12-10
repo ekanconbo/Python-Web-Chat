@@ -95,7 +95,11 @@ def process_connection():
                             if data_list[0] == "/set":
                                 #not necessary but decided to make it less ambigious
                                 data_list = data.split(" ", 2)
-                                if data_list[1] == "username" and data_list[2] != "":
+                                if data_list[1] != "username":
+                                    c.sock.send("Invalid command")
+                                elif data_list[2] == "":
+                                    c.sock.send("No user given")
+                                else:
                                     found = False
                                     for con in CONNECTIONS:
                                         if con != c.sock:
@@ -111,9 +115,32 @@ def process_connection():
                                     else:
                                         c.sock.send("Invalid username")
 
-                                else:
-                                    c.sock.send("Invalid command")
 
+                            #Send message to individual user
+                            elif data_list[0] == "/whisper":
+                                data_list = data.split(" ", 2)
+                                if data_list[1] == "":
+                                    c.sock.send("No username given")
+                                else:
+                                    found = False
+                                    for con in CONNECTIONS:
+                                        if con != c.sock:
+                                            if con.username == data_list[1]:
+                                                if con not in c.ignore_list and c not in con.ignore_list:
+                                                    found = True
+                                                    if data_list[2][0] != "/" and data_list[2] != "":
+                                                        con.sock.send(c.username + " whispers: " + data_list[2])
+                                                        c.sock.send("Message sent")
+                                                    else:
+                                                        c.sock.send("Invalid message")
+                                                break
+                                    if found != True:
+                                        c.sock.send("User not found")
+
+                                
+
+ 
+                            
                             
                             #Blocks users by finding their connection object by username and adding it to the blocker's ignore_list
                             elif data_list[0] == "/block":
@@ -165,7 +192,7 @@ def process_connection():
 
                             elif data == "/help":
                                 c.sock.send("The following commands are:\n/view: View all available users in the chatroom\n/block [username]: Put the user on your ignore list"
-                                            +"\n/unblock: Remove the user from your ignore list\n/logout: Sign out of chat\n/help: View the help menu")
+                                            +"\n/unblock: Remove the user from your ignore list\n/whisper [username] [message]: Whispers message to user\n/logout: Sign out of chat\n/help: View the help menu")
                             
                             else:
                                 c.sock.send("Invalid command")

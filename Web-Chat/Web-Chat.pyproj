@@ -40,6 +40,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Chatterbox.ico" />
+    <Content Include="README.txt" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
